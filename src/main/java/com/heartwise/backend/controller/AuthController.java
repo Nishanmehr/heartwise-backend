@@ -22,35 +22,29 @@ public class AuthController {
     @Autowired private MentorRepository mentorRepository;
 
     /* ========== USER LOGIN ========== */
-
     @PostMapping("/user/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail());
-        if (user == null || !user.getPassword().equals(request.getPassword())) {
+        if (user == null || !user.getPassword().equals(request.getPassword()))
             return ResponseEntity.status(401).body(Map.of("message", "Invalid email or password"));
-        }
+
         return ResponseEntity.ok(new AuthResponse(
                 user.getId(), user.getName(), user.getEmail(), "USER", UUID.randomUUID().toString()
         ));
     }
 
     /* ========== USER REGISTER ========== */
-
     @PostMapping("/user/register")
     public ResponseEntity<?> registerUser(@RequestBody RegisterRequest request) {
-        // Validate required fields
-        if (request.getName() == null || request.getName().isBlank())
+        if (isBlank(request.getName()))
             return ResponseEntity.badRequest().body(Map.of("message", "Name is required"));
-        if (request.getEmail() == null || request.getEmail().isBlank())
+        if (isBlank(request.getEmail()))
             return ResponseEntity.badRequest().body(Map.of("message", "Email is required"));
-        if (request.getPassword() == null || request.getPassword().length() < 6)
+        if (isBlank(request.getPassword()) || request.getPassword().length() < 6)
             return ResponseEntity.badRequest().body(Map.of("message", "Password must be at least 6 characters"));
-
-        // Check duplicate email
         if (userRepository.findByEmail(request.getEmail()) != null)
             return ResponseEntity.status(409).body(Map.of("message", "Email already registered"));
 
-        // Save new user
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
@@ -58,57 +52,73 @@ public class AuthController {
         user.setRole("USER");
         userRepository.save(user);
 
-        // Auto-login: return token immediately
         return ResponseEntity.ok(new AuthResponse(
                 user.getId(), user.getName(), user.getEmail(), "USER", UUID.randomUUID().toString()
         ));
     }
 
     /* ========== MENTOR LOGIN ========== */
-
     @PostMapping("/mentor/login")
     public ResponseEntity<?> loginMentor(@RequestBody LoginRequest request) {
         Mentor mentor = mentorRepository.findByEmail(request.getEmail());
-        if (mentor == null || !mentor.getPassword().equals(request.getPassword())) {
+        if (mentor == null || !mentor.getPassword().equals(request.getPassword()))
             return ResponseEntity.status(401).body(Map.of("message", "Invalid email or password"));
-        }
+
         return ResponseEntity.ok(new AuthResponse(
                 mentor.getId(), mentor.getName(), mentor.getEmail(), "MENTOR", UUID.randomUUID().toString()
         ));
     }
 
     /* ========== MENTOR REGISTER ========== */
-
     @PostMapping("/mentor/register")
     public ResponseEntity<?> registerMentor(@RequestBody RegisterRequest request) {
         // Validate required fields
-        if (request.getName() == null || request.getName().isBlank())
-            return ResponseEntity.badRequest().body(Map.of("message", "Name is required"));
-        if (request.getEmail() == null || request.getEmail().isBlank())
+        if (isBlank(request.getFirstName()))
+            return ResponseEntity.badRequest().body(Map.of("message", "First name is required"));
+        if (isBlank(request.getLastName()))
+            return ResponseEntity.badRequest().body(Map.of("message", "Last name is required"));
+        if (isBlank(request.getEmail()))
             return ResponseEntity.badRequest().body(Map.of("message", "Email is required"));
-        if (request.getPassword() == null || request.getPassword().length() < 6)
+        if (isBlank(request.getPassword()) || request.getPassword().length() < 6)
             return ResponseEntity.badRequest().body(Map.of("message", "Password must be at least 6 characters"));
-        if (request.getSpecialty() == null || request.getSpecialty().isBlank())
+        if (isBlank(request.getDob()))
+            return ResponseEntity.badRequest().body(Map.of("message", "Date of birth is required"));
+        if (isBlank(request.getGender()))
+            return ResponseEntity.badRequest().body(Map.of("message", "Gender is required"));
+        if (isBlank(request.getSpecialty()))
             return ResponseEntity.badRequest().body(Map.of("message", "Specialty is required"));
+        if (isBlank(request.getLanguages()))
+            return ResponseEntity.badRequest().body(Map.of("message", "Languages are required"));
+        if (isBlank(request.getSkills()))
+            return ResponseEntity.badRequest().body(Map.of("message", "Skills are required"));
 
         // Check duplicate email
         if (mentorRepository.findByEmail(request.getEmail()) != null)
             return ResponseEntity.status(409).body(Map.of("message", "Email already registered"));
 
-        // Save new mentor
+        // Save mentor
         Mentor mentor = new Mentor();
-        mentor.setName(request.getName());
+        mentor.setFirstName(request.getFirstName());
+        mentor.setLastName(request.getLastName());
         mentor.setEmail(request.getEmail());
         mentor.setPassword(request.getPassword());
+        mentor.setDob(request.getDob());
+        mentor.setGender(request.getGender());
         mentor.setSpecialty(request.getSpecialty());
+        mentor.setSkills(request.getSkills());
+        mentor.setLanguages(request.getLanguages());
         mentor.setExperience(request.getExperience() != null ? request.getExperience() : 0);
         mentor.setPrice(request.getPrice()      != null ? request.getPrice()      : 500.0);
-        mentor.setRating(5.0); // Default rating for new mentors
+        mentor.setProfilePicture(request.getProfilePicture());
+        mentor.setRating(5.0);
         mentorRepository.save(mentor);
 
-        // Auto-login: return token immediately
         return ResponseEntity.ok(new AuthResponse(
                 mentor.getId(), mentor.getName(), mentor.getEmail(), "MENTOR", UUID.randomUUID().toString()
         ));
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }
