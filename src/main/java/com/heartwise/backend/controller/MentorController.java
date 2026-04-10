@@ -34,6 +34,35 @@ public class MentorController {
         return ResponseEntity.ok(buildMentorMap(optional.get()));
     }
 
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateMentor(@PathVariable Integer id, @RequestBody Map<String, Object> updates) {
+        Optional<Mentor> optional = mentorRepository.findById(id);
+        if (optional.isEmpty())
+            return ResponseEntity.status(404).body(Map.of("message", "Mentor not found"));
+
+        Mentor m = optional.get();
+
+        if (updates.containsKey("firstName"))      m.setFirstName((String) updates.get("firstName"));
+        if (updates.containsKey("lastName"))       m.setLastName((String) updates.get("lastName"));
+        if (updates.containsKey("specialty"))      m.setSpecialty((String) updates.get("specialty"));
+        if (updates.containsKey("skills"))         m.setSkills((String) updates.get("skills"));
+        if (updates.containsKey("languages"))      m.setLanguages((String) updates.get("languages"));
+        if (updates.containsKey("dob"))            m.setDob((String) updates.get("dob"));
+        if (updates.containsKey("gender"))         m.setGender((String) updates.get("gender"));
+        if (updates.containsKey("profilePicture")) m.setProfilePicture((String) updates.get("profilePicture"));
+        if (updates.containsKey("experience"))     m.setExperience((Integer) updates.get("experience"));
+        if (updates.containsKey("price")) {
+            Object p = updates.get("price");
+            m.setPrice(p instanceof Integer ? ((Integer)p).doubleValue() : (Double)p);
+        }
+
+        mentorRepository.save(m);
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/json")
+                .body(Map.of("message", "Profile updated successfully"));
+    }
+
     private Map<String, Object> buildMentorMap(Mentor m) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id",             m.getId());
