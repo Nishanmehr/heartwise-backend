@@ -25,23 +25,28 @@ public class AuthController {
     @Autowired private MentorRepository mentorRepository;
     @Autowired private EmailService     emailService;
 
-    /* ── Generate 6-digit OTP ── */
     private String generateOtp() {
         return String.format("%06d", new Random().nextInt(999999));
+    }
+
+    private void trySendOtp(String email, String name, String otp) {
+        try {
+            emailService.sendOtp(email, name, otp);
+        } catch (Exception e) {
+            System.err.println("OTP email failed: " + e.getMessage());
+        }
     }
 
     /* ══════════════ USER LOGIN ══════════════ */
     @PostMapping("/user/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail());
-
         if (user == null || !user.getPassword().equals(request.getPassword()))
             return ResponseEntity.status(401).body(Map.of("message", "Invalid email or password"));
 
-        // Check if email is verified
         if (!user.isVerified())
             return ResponseEntity.status(403).body(Map.of(
-                    "message", "Email not verified. Please check your email for OTP.",
+                    "message", "Email not verified",
                     "needsVerification", true,
                     "email", user.getEmail()
             ));
@@ -62,17 +67,15 @@ public class AuthController {
         if (isBlank(request.getPassword()) || request.getPassword().length() < 6)
             return ResponseEntity.badRequest().body(Map.of("message", "Password must be at least 6 characters"));
 
-        // Check duplicate email
         User existing = userRepository.findByEmail(request.getEmail());
         if (existing != null) {
-            // If already registered but not verified — resend OTP
             if (!existing.isVerified()) {
                 String otp = generateOtp();
                 existing.setOtp(otp);
                 userRepository.save(existing);
-                emailService.sendOtp(existing.getEmail(), existing.getName(), otp);
+                trySendOtp(existing.getEmail(), existing.getName(), otp);
                 return ResponseEntity.ok(Map.of(
-                        "message", "OTP resent to your email",
+                        "message", "OTP resent",
                         "needsVerification", true,
                         "email", existing.getEmail()
                 ));
@@ -80,7 +83,6 @@ public class AuthController {
             return ResponseEntity.status(409).body(Map.of("message", "Email already registered"));
         }
 
-        // Save new user
         String otp = generateOtp();
         User user = new User();
         user.setName(request.getName());
@@ -91,13 +93,7 @@ public class AuthController {
         user.setVerified(false);
         userRepository.save(user);
 
-        // Send OTP email - don't crash if email fails
-        try {
-            emailService.sendOtp(user.getEmail(), user.getName(), otp);
-        } catch (Exception e) {
-            // Log error but still return success so user sees OTP screen
-            System.err.println("Email send failed: " + e.getMessage());
-        }
+        trySendOtp(user.getEmail(), user.getName(), otp);
 
         return ResponseEntity.ok(Map.of(
                 "message", "OTP sent to " + user.getEmail(),
@@ -110,19 +106,15 @@ public class AuthController {
     @PostMapping("/user/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody OtpRequest request) {
         User user = userRepository.findByEmail(request.getEmail());
-
         if (user == null)
             return ResponseEntity.status(404).body(Map.of("message", "User not found"));
-
         if (!request.getOtp().equals(user.getOtp()))
             return ResponseEntity.status(400).body(Map.of("message", "Invalid OTP ❌"));
 
-        // Mark as verified and clear OTP
         user.setVerified(true);
         user.setOtp(null);
         userRepository.save(user);
 
-        // Auto login after verification
         return ResponseEntity.ok(new AuthResponse(
                 user.getId(), user.getName(), user.getEmail(), "USER",
                 UUID.randomUUID().toString()
@@ -134,22 +126,15 @@ public class AuthController {
     public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> body) {
         String email = body.get("email");
         User user = userRepository.findByEmail(email);
-
         if (user == null)
             return ResponseEntity.status(404).body(Map.of("message", "User not found"));
-
         if (user.isVerified())
             return ResponseEntity.badRequest().body(Map.of("message", "Email already verified"));
 
         String otp = generateOtp();
         user.setOtp(otp);
         userRepository.save(user);
-
-        try {
-            emailService.sendOtp(user.getEmail(), user.getName(), otp);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Failed to send OTP"));
-        }
+        trySendOtp(user.getEmail(), user.getName(), otp);
 
         return ResponseEntity.ok(Map.of("message", "OTP resent to " + email));
     }
