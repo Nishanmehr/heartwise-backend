@@ -91,11 +91,12 @@ public class AuthController {
         user.setVerified(false);
         userRepository.save(user);
 
-        // Send OTP email
+        // Send OTP email - don't crash if email fails
         try {
             emailService.sendOtp(user.getEmail(), user.getName(), otp);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Failed to send OTP email. Check email config."));
+            // Log error but still return success so user sees OTP screen
+            System.err.println("Email send failed: " + e.getMessage());
         }
 
         return ResponseEntity.ok(Map.of(
