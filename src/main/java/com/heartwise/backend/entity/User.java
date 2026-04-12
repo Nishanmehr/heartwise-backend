@@ -15,7 +15,9 @@ public class User {
     private String name;
     private String email;
     private String password;
-
-    // Role is always "USER" for this table — stored for consistency
     private String role = "USER";
+
+    // OTP Verification
+    private String  otp;
+    private boolean verified = false;
 }
