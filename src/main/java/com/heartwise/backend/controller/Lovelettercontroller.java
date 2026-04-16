@@ -35,7 +35,7 @@ public class Lovelettercontroller {
         try {
             // ✅ Groq request body
             String requestBody = objectMapper.writeValueAsString(Map.of(
-                    "model", "mixtral-8x7b-32768",
+                    "model", "gemma2-9b-it",
                     "messages", new Object[]{
                             Map.of("role", "user", "content", prompt)
                     }
