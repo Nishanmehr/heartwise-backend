@@ -10,32 +10,45 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ai")
-public class Lovelettercontroller {
+public class LoveLetterController {
 
     @Value("${GROQ_API_KEY}")
     private String apiKey;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
     @PostMapping("/love-letter")
     public ResponseEntity<?> generateLoveLetter(@RequestBody Map<String, String> body) {
 
-        String senderName   = body.getOrDefault("senderName", "");
-        String receiverName = body.getOrDefault("receiverName", "");
+        String senderName   = sanitize(body.getOrDefault("senderName", ""));
+        String receiverName = sanitize(body.getOrDefault("receiverName", ""));
         String reason       = body.getOrDefault("reason", "birthday");
         String tone         = body.getOrDefault("tone", "romantic");
-        String extra        = body.getOrDefault("extra", "");
+        String extra        = sanitize(body.getOrDefault("extra", ""));
+        String language     = body.getOrDefault("language", "english");
+        String length       = body.getOrDefault("length", "medium");
 
-        String prompt = buildPrompt(senderName, receiverName, reason, tone, extra);
+        String prompt = buildPrompt(senderName, receiverName, reason, tone, extra, language, length);
 
         try {
-            // ✅ Groq request body
+            int maxTokens = switch (length) {
+                case "short" -> 200;
+                case "long"  -> 800;
+                default      -> 400;
+            };
+
             String requestBody = objectMapper.writeValueAsString(Map.of(
                     "model", "llama-3.1-8b-instant",
+                    "max_tokens", maxTokens,
                     "messages", new Object[]{
                             Map.of("role", "user", "content", prompt)
                     }
@@ -45,11 +58,11 @@ public class Lovelettercontroller {
                     .uri(URI.create("https://api.groq.com/openai/v1/chat/completions"))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + apiKey)
+                    .timeout(Duration.ofSeconds(20))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
-            HttpResponse<String> response = HttpClient.newHttpClient()
-                    .send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
                 System.out.println("ERROR: " + response.body());
@@ -57,13 +70,12 @@ public class Lovelettercontroller {
                         .body(Map.of("message", "AI service error"));
             }
 
-            // ✅ Correct parsing for Groq response
             JsonNode root = objectMapper.readTree(response.body());
             String letter = root
-                    .get("choices")
+                    .path("choices")
                     .get(0)
-                    .get("message")
-                    .get("content")
+                    .path("message")
+                    .path("content")
                     .asText();
 
             return ResponseEntity.ok(Map.of("letter", letter));
@@ -75,7 +87,8 @@ public class Lovelettercontroller {
         }
     }
 
-    private String buildPrompt(String sender, String receiver, String reason, String tone, String extra) {
+    private String buildPrompt(String sender, String receiver, String reason, String tone,
+                               String extra, String language, String length) {
 
         String reasonText = switch (reason) {
             case "birthday"    -> "their birthday";
@@ -100,11 +113,32 @@ public class Lovelettercontroller {
             default          -> "deeply romantic and passionate";
         };
 
-        return "Write a " + toneText + " love letter from " + sender + " to " + receiver
+        String wordCount = switch (length) {
+            case "short" -> "80-100 words";
+            case "long"  -> "350-400 words";
+            default      -> "180-220 words";
+        };
+
+        String langInstruction = switch (language) {
+            case "hindi" -> "Write ENTIRELY in Hindi using simple natural language.";
+            case "hinglish" -> "Write in Hinglish (mix of Hindi and English, casual texting style).";
+            default -> "Write in simple natural English.";
+        };
+
+        return "You are a real human writing a personal love letter. Use simple words, real emotions, and natural tone. Avoid AI-like or overly poetic phrases."
+                + " Write a " + toneText + " love letter from " + sender + " to " + receiver
                 + " for " + reasonText + "."
-                + (extra.isEmpty() ? "" : " Personal details: " + extra + ".")
-                + " Make it personal, genuine and about 150-200 words."
-                + " Start with 'My dearest " + receiver + ",' and end with '" + sender + "'."
-                + " Only write the letter, nothing else.";
+                + (extra.isEmpty() ? "" : " Include these personal details: " + extra + ".")
+                + " Length: " + wordCount + ". "
+                + langInstruction
+                + " Start with a warm greeting and end with " + sender + "'s name."
+                + " Only return the letter.";
+    }
+
+    private String sanitize(String input) {
+        if (input == null) return "";
+        return input.replaceAll("[\\n\\r\\t]", " ")
+                .replaceAll("[^a-zA-Z0-9 ,.?!']", "")
+                .trim();
     }
 }
