@@ -15,7 +15,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ai")
-public class LoveLetterController {
+public class Lovelettercontroller {
 
     @Value("${GROQ_API_KEY}")
     private String apiKey;
