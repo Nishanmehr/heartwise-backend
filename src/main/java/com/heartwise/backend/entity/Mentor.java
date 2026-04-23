@@ -22,8 +22,8 @@ public class Mentor {
     private String  gender;
     private String  dob;
     private Integer experience = 0;
-    private Double  price      = 500.0;
-    private Double  rating     = 5.0;
+    private double  price      = 500.0;
+    private double  rating     = 5.0;
 
     @Column(columnDefinition = "TEXT")
     private String profilePicture;
