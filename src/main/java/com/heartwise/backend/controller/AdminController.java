@@ -121,6 +121,31 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("message", "Booking deleted successfully"));
     }
 
+
+    /* ══ APPROVE MENTOR ══ */
+    @PutMapping("/mentors/{id}/approve")
+    public ResponseEntity<?> approveMentor(@RequestHeader("Admin-Token") String token,
+                                           @PathVariable Integer id) {
+        if (!validateToken(token)) return unauthorized();
+        return mentorRepository.findById(id).map(mentor -> {
+            mentor.setApproved(true);
+            mentorRepository.save(mentor);
+            return ResponseEntity.ok(Map.of("message", "Mentor approved ✅"));
+        }).orElse(ResponseEntity.status(404).body(Map.of("message", "Mentor not found")));
+    }
+
+    /* ══ REJECT MENTOR ══ */
+    @PutMapping("/mentors/{id}/reject")
+    public ResponseEntity<?> rejectMentor(@RequestHeader("Admin-Token") String token,
+                                          @PathVariable Integer id) {
+        if (!validateToken(token)) return unauthorized();
+        return mentorRepository.findById(id).map(mentor -> {
+            mentor.setApproved(false);
+            mentorRepository.save(mentor);
+            return ResponseEntity.ok(Map.of("message", "Mentor rejected ❌"));
+        }).orElse(ResponseEntity.status(404).body(Map.of("message", "Mentor not found")));
+    }
+
     /* ══ HELPERS ══ */
     private boolean validateToken(String token) {
         return "admin-secret-token-heartwise".equals(token);
