@@ -28,6 +28,10 @@ public class Mentor {
     @Column(columnDefinition = "TEXT")
     private String profilePicture;
 
+    // OTP Verification
+    private String  otp;
+    private boolean verified = false;
+
     // Admin approval
     private boolean approved = false;
 

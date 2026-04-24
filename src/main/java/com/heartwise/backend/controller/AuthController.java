@@ -146,6 +146,23 @@ public class AuthController {
         if (mentor == null || !mentor.getPassword().equals(request.getPassword()))
             return ResponseEntity.status(401).body(Map.of("message", "Invalid email or password"));
 
+        // Check email verified
+        if (!mentor.isVerified())
+            return ResponseEntity.status(403).body(Map.of(
+                    "message", "Email not verified",
+                    "needsVerification", true,
+                    "email", mentor.getEmail()
+            ));
+
+        // Check admin approved
+        if (!mentor.isApproved())
+            return ResponseEntity.status(403).body(Map.of(
+                    "message", "Your application is under review.",
+                    "pendingApproval", true,
+                    "email", mentor.getEmail(),
+                    "name", mentor.getName()
+            ));
+
         return ResponseEntity.ok(new AuthResponse(
                 mentor.getId(), mentor.getName(), mentor.getEmail(), "MENTOR",
                 UUID.randomUUID().toString()
@@ -169,9 +186,27 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "Languages are required"));
         if (isBlank(request.getSkills()))
             return ResponseEntity.badRequest().body(Map.of("message", "Skills are required"));
-        if (mentorRepository.findByEmail(request.getEmail()) != null)
-            return ResponseEntity.status(409).body(Map.of("message", "Email already registered"));
+        if (isBlank(request.getProfilePicture()))
+            return ResponseEntity.badRequest().body(Map.of("message", "Profile picture is required"));
 
+        // Check duplicate
+        Mentor existing = mentorRepository.findByEmail(request.getEmail());
+        if (existing != null) {
+            if (!existing.isVerified()) {
+                String otp = generateOtp();
+                existing.setOtp(otp);
+                mentorRepository.save(existing);
+                trySendOtp(existing.getEmail(), existing.getName(), otp);
+                return ResponseEntity.ok(Map.of(
+                        "message", "OTP resent",
+                        "needsVerification", true,
+                        "email", existing.getEmail()
+                ));
+            }
+            return ResponseEntity.status(409).body(Map.of("message", "Email already registered"));
+        }
+
+        String otp = generateOtp();
         Mentor mentor = new Mentor();
         mentor.setFirstName(request.getFirstName());
         mentor.setLastName(request.getLastName());
@@ -186,11 +221,71 @@ public class AuthController {
         mentor.setPrice(request.getPrice()      != null ? request.getPrice()      : 500.0);
         mentor.setProfilePicture(request.getProfilePicture());
         mentor.setRating(5.0);
+        mentor.setOtp(otp);
+        mentor.setVerified(false);
+        mentor.setApproved(false);
         mentorRepository.save(mentor);
 
-        return ResponseEntity.ok(new AuthResponse(
-                mentor.getId(), mentor.getName(), mentor.getEmail(), "MENTOR",
-                UUID.randomUUID().toString()
+        trySendOtp(mentor.getEmail(), mentor.getName(), otp);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "OTP sent to " + mentor.getEmail(),
+                "needsVerification", true,
+                "email", mentor.getEmail()
+        ));
+    }
+
+    /* ══════════════ MENTOR VERIFY OTP ══════════════ */
+    @PostMapping("/mentor/verify-otp")
+    public ResponseEntity<?> verifyMentorOtp(@RequestBody OtpRequest request) {
+        Mentor mentor = mentorRepository.findByEmail(request.getEmail());
+        if (mentor == null)
+            return ResponseEntity.status(404).body(Map.of("message", "Mentor not found"));
+        if (!request.getOtp().equals(mentor.getOtp()))
+            return ResponseEntity.status(400).body(Map.of("message", "Invalid OTP ❌"));
+
+        mentor.setVerified(true);
+        mentor.setOtp(null);
+        mentorRepository.save(mentor);
+
+        // Return pending approval status
+        return ResponseEntity.ok(Map.of(
+                "message", "Email verified! Your application is under review.",
+                "pendingApproval", true,
+                "email", mentor.getEmail(),
+                "name", mentor.getName()
+        ));
+    }
+
+    /* ══════════════ MENTOR RESEND OTP ══════════════ */
+    @PostMapping("/mentor/resend-otp")
+    public ResponseEntity<?> resendMentorOtp(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        Mentor mentor = mentorRepository.findByEmail(email);
+        if (mentor == null)
+            return ResponseEntity.status(404).body(Map.of("message", "Mentor not found"));
+        if (mentor.isVerified())
+            return ResponseEntity.badRequest().body(Map.of("message", "Email already verified"));
+
+        String otp = generateOtp();
+        mentor.setOtp(otp);
+        mentorRepository.save(mentor);
+        trySendOtp(mentor.getEmail(), mentor.getName(), otp);
+
+        return ResponseEntity.ok(Map.of("message", "OTP resent to " + email));
+    }
+
+
+    /* ══════════════ MENTOR STATUS ══════════════ */
+    @GetMapping("/mentor/status")
+    public ResponseEntity<?> mentorStatus(@RequestParam String email) {
+        Mentor mentor = mentorRepository.findByEmail(email);
+        if (mentor == null)
+            return ResponseEntity.status(404).body(Map.of("message", "Mentor not found"));
+        return ResponseEntity.ok(Map.of(
+                "approved", mentor.isApproved(),
+                "verified", mentor.isVerified(),
+                "name",     mentor.getName()
         ));
     }
 

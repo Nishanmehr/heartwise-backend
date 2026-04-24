@@ -72,7 +72,7 @@ public class MentorController {
         map.put("specialty",      m.getSpecialty());
         map.put("skills",         m.getSkills());
         map.put("languages",      m.getLanguages());
-        map.put("price",          "₹" + (int) m.getPrice());
+        map.put("price",          "₹" + (double) m.getPrice());
         map.put("rating",         m.getRating());
         map.put("experience",     m.getExperience() + " yrs");
         map.put("gender",         m.getGender());
