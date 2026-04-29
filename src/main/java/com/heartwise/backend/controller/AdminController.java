@@ -23,7 +23,7 @@ public class AdminController {
     @Autowired private BookingRepository bookingRepository;
 
     // Hardcoded admin credentials
-    @Value("${ADMIN_EMAIL:admin@heartwise.com}")
+    @Value("${ADMIN_EMAIL:admin@heartnishant.com}")
     private String adminEmail;
 
     @Value("${ADMIN_PASSWORD:heartwise@admin123}")
