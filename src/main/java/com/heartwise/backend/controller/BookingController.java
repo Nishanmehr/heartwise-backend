@@ -45,8 +45,13 @@ public class BookingController {
         Booking booking = new Booking();
         booking.setUser(userOpt.get());
         booking.setMentor(mentorOpt.get());
-        booking.setSessionType(request.getType());
-        booking.setSlot(request.getSlot());
+        // Strip emojis to avoid MySQL charset issues
+        String sessionType = request.getType() != null
+                ? request.getType().replaceAll("[^\\x00-\\x7F]", "").trim() : "Chat";
+        String slot = request.getSlot() != null
+                ? request.getSlot().replaceAll("[^\\x00-\\x7F\\u0900-\\u097F\\s:,.-]", "").trim() : "";
+        booking.setSessionType(sessionType);
+        booking.setSlot(slot);
         booking.setStatus("PENDING");
         bookingRepository.save(booking);
 
