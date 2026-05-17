@@ -25,7 +25,7 @@ public class Mentor {
     private double  price      = 500.0;
     private double  rating     = 5.0;
 
-    @Column(columnDefinition = "MEDIUMTEXT")
+    @Column(columnDefinition = "TEXT")
     private String profilePicture;
 
     // OTP Verification
