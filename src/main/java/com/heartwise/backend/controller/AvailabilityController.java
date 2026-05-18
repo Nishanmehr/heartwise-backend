@@ -27,7 +27,7 @@ public class AvailabilityController {
     }
 
     /* ══ SAVE mentor availability ══ */
-    @PostMapping("/{mentorId}")
+    @PostMapping("/{mentorId}/slots")
     @Transactional
     public ResponseEntity<?> saveAvailability(
             @PathVariable Integer mentorId,
